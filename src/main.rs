@@ -25,24 +25,24 @@ fn main() -> std::io::Result<()>{
 
         let serverIps1 = Arc::clone(&serverIps);
         let handler = thread::spawn( move || {
-        let socket = UdpSocket::bind("192.168.1.3:5966").unwrap();
+        let socket = UdpSocket::bind("10.40.44.255:2025").unwrap();
 
             loop {
-                println!("Sending message to other servers");
-                let mut rng = rand::thread_rng();
-                let n = rng.gen_range(0, 6);
-                println!("Random number: {n}");
+                // println!("Sending message to other servers");
+                // let mut rng = rand::thread_rng();
+                // let n = rng.gen_range(0, 6);
+                // println!("Random number: {n}");
 
                 // forwarding the request in a random faashion to one of the servers 
-                if n == 5{
-                    let mut num = serverIps1.lock().unwrap();
-                    num[0].state = false;
-                        // I am server 0
-                        socket.send_to(b"0", &num[1].ip).unwrap();
-                        socket.send_to(b"0", &num[2].ip).unwrap();
+                // if n == 5{
+                //     let mut num = serverIps1.lock().unwrap();
+                //     num[0].state = false;
+                //         // I am server 0
+                //         // socket.send_to(b"0", &num[1].ip).unwrap();
+                //         // socket.send_to(b"0", &num[2].ip).unwrap();
 
-                        std::mem::drop(num);
-                } 
+                //         std::mem::drop(num);
+                // } 
     
             }
             
@@ -52,10 +52,10 @@ fn main() -> std::io::Result<()>{
             // thread to receive messages from other servers
             // dedicated thread to avoid being blocked by recv_from
             let handler1 = thread::spawn(move || {
-                let socket = UdpSocket::bind("192.168.1.3:5960").unwrap();
+                let socket = UdpSocket::bind("10.40.44.255:2024").unwrap();
         
                 loop {
-                        println!("Recieving messages from other servers");
+                        
                         let mut buf = [0; 1]; // buffer for recieving 
 
 
@@ -87,10 +87,11 @@ fn main() -> std::io::Result<()>{
                 });
 
 
-        let socket = UdpSocket::bind("192.168.1.3:5959").unwrap();
+        let socket = UdpSocket::bind("10.40.44.255:2023").unwrap();
 
         // main thread to comunicate with the agents
         loop {
+            println!("Recieving messages from other servers");
             let mut buf = [0; 10];
             let (amt, src) = socket.recv_from(&mut buf).unwrap();
             thread::sleep(Duration::from_millis(100));
@@ -98,7 +99,7 @@ fn main() -> std::io::Result<()>{
             // Redeclare `buf` as slice of the received data and send reverse data back to origin.
             let buf = &mut buf[..amt];
             buf.reverse();
-            socket.send_to(buf, &src).unwrap();
+            socket.send_to(buf, "10.40.44.255:2021").unwrap();
         }
 
 
