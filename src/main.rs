@@ -12,12 +12,12 @@ use rand::Rng;
 use rand::seq::index;
 use std::sync::{Arc, Mutex};
 use systemstat::{System, Platform, saturating_sub_bytes};
+use std::vec;
 
 use std::time;
 
 // To store server status
 struct server{
-
     ip: String,
     state: bool,
     temperature: u8,
@@ -26,11 +26,18 @@ struct server{
 fn main() -> std::io::Result<()>{
     {
 
-        // The client should be aware of servers that are up, from the leader 
-      let temp: [server; 3] = [server { ip: "172.20.10.6:2024".to_string(), state: true, temperature: 100}, server { ip: "172.20.10.6:2024".to_string(), state: true, temperature: 100 }, server { ip: "172.20.10.3:2024".to_string(), state: true, temperature: 100},];
-      let serverInfo = Arc::new(Mutex::new(temp));
+      let tempAgents: Vec<server> = vec![]; 
+      let tempServers: [server; 3] = [server { ip: "172.20.10.6:2024".to_string(), state: true, temperature: 100}, server { ip: "172.20.10.6:2024".to_string(), state: true, temperature: 100 }, server { ip: "172.20.10.3:2024".to_string(), state: true, temperature: 100},];
+    
+      let agents = Arc::new(Mutex::new(tempAgents));
+      let serverInfo = Arc::new(Mutex::new(tempServers));
       let ip = local_ip::get().unwrap();
         // send to servers current temperature as a parameter to elect the server to go down
+
+
+        // communicate with agents to inform them if this server is going down 
+        // along with sending other servers current temp for update 
+
         let serverInfo1 = Arc::clone(&serverInfo);
         let handler = thread::spawn( move || {
         let sys = System::new();
@@ -59,7 +66,6 @@ fn main() -> std::io::Result<()>{
             let one_minute = time::Duration::from_millis(60000);
             thread::sleep(one_minute);
             
-    
             }
             
             });
@@ -112,9 +118,74 @@ fn main() -> std::io::Result<()>{
                         
                 });
 
+                // this thread is responsible to keep track of running agents 
+
+                let agents2 = Arc::clone(&agents);
+
+                let handler2 = thread::spawn(move || -> ! {
+                    
+                    let socket = UdpSocket::bind(ip.to_string()+":2030").unwrap();
+                    let updatingAgentsThreadMsg = "UpdatingAgentsThread::";
+                    loop {
+
+                        // blocks until any of the agents informs the server it's up or down (checks based on buf)
+                        let mut buf = [0; 100]; // buffer for recieving 
+
+                        let (amt, src) = socket.recv_from(&mut buf).unwrap();
+                        
+
+                        let src1 = src.ip().to_string(); 
+                        let src1: Vec<&str> = src1.split(":").collect(); 
+                        let src1 = src1[0]; 
+
+                        let msg = String::from_utf8((&buf).to_vec()).unwrap();
+                        let msg = msg.trim_matches(char::from(0));
+                        
+                        let mut agents22 = agents2.lock().unwrap();
+                        if msg == "1" {
+                             
+                        agents22.push(server{ip: src1.to_string(), state: true, temperature: 0});
+
+                        }else if msg == "0"{
+
+                            println!("removing agent with ip: {}", src);
+                            let size = agents22.len();
+                            for i in 0..(size) {
+
+                                // remove the agent from the active agents list 
+
+                                if agents22[i].ip ==  src1.to_string() {
+                                    agents22.remove(i); 
+                                }
+                            }
+
+                        }
+
+
+
+                        println!("{} Active agents are: \n", updatingAgentsThreadMsg); 
+
+                        for agent in agents22.iter() {
+                            println!("{}{}", updatingAgentsThreadMsg , agent.ip); 
+                        }
+
+                        std::mem::drop(agents22);
+                   
+                        }
+                            
+                    });
+
+
+
+
+
+
+
+                    
 
         let socket = UdpSocket::bind(ip.to_string()+":2023").unwrap();
         let agentsThreadMsg = "agentsThread::";
+
         // main thread to comunicate with the agents to perform main server functionality (reverse word)
         loop {
             println!("{} Recieving messages from agents", agentsThreadMsg);
@@ -130,6 +201,7 @@ fn main() -> std::io::Result<()>{
 
 
         handler.join().unwrap();
+        handler2.join().unwrap();
         handler1.join().unwrap();
     }
 
