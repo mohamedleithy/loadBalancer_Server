@@ -118,14 +118,14 @@ fn main() -> std::io::Result<()>{
         // main thread to comunicate with the agents to perform main server functionality (reverse word)
         loop {
             println!("{} Recieving messages from agents", agentsThreadMsg);
-            let mut buf = [0; 10];
+            let mut buf = [0; 60];
             let (amt, src) = socket.recv_from(&mut buf).unwrap();
             thread::sleep(Duration::from_millis(100));
 
             // Redeclare `buf` as slice of the received data and send reverse data back to origin.
             let buf = &mut buf[..amt];
             buf.reverse();
-            socket.send_to(buf, "10.40.44.255:2021").unwrap();
+            socket.send_to(buf, ip.to_string()+":2021").unwrap();
         }
 
 
