@@ -13,6 +13,7 @@ use rand::seq::index;
 use std::sync::{Arc, Mutex};
 use systemstat::{System, Platform, saturating_sub_bytes};
 use std::vec;
+use byteorder::{BigEndian, ReadBytesExt};
 
 use std::time;
 
@@ -20,18 +21,19 @@ use std::time;
 struct server{
     ip: String,
     state: bool,
-    temperature: u8,
+    cpu_score: u8,
 }
 
 fn main() -> std::io::Result<()>{
     {
-
+    
+      let ip = local_ip::get().unwrap();
       let tempAgents: Vec<server> = vec![]; 
-      let tempServers: [server; 3] = [server { ip: "172.20.10.6:2024".to_string(), state: true, temperature: 100}, server { ip: "172.20.10.6:2024".to_string(), state: true, temperature: 100 }, server { ip: "172.20.10.3:2024".to_string(), state: true, temperature: 100},];
+      let tempServers: [server; 3] = [server { ip: ip.to_string(), state: true, cpu_score: 100}, server { ip: "172.20.10.6".to_string(), state: true, cpu_score: 100}, server { ip: "172.20.10.3".to_string(), state: true, cpu_score: 100},];
     
       let agents = Arc::new(Mutex::new(tempAgents));
       let serverInfo = Arc::new(Mutex::new(tempServers));
-      let ip = local_ip::get().unwrap();
+      
         // send to servers current temperature as a parameter to elect the server to go down
 
 
@@ -46,23 +48,36 @@ fn main() -> std::io::Result<()>{
             loop {
 
                 let cpu_temp = sys.cpu_temp().unwrap();
+                let mem = sys.memory().unwrap();
+                let mem_used = saturating_sub_bytes(mem.total ,mem.free);
+
+                let mut score=mem_used.to_string();
                 
-                println!("{} Sending message to other servers. Current temp: {}", serverOutThreadMsg, cpu_temp);
-    
                 let mut serverInfo11 = serverInfo1.lock().unwrap();
-                let msg = format!("Temprature:{}", cpu_temp);
+
+                // casting ByteSize to int
+                let score: Vec<&str> = score.split(".").collect(); 
+                let score = score[0].parse::<u8>().unwrap(); 
+
+                let cpu_temp = cpu_temp.to_string();
+                let cpu_temp: Vec<&str> = cpu_temp.split(".").collect(); 
+                let cpu_temp = cpu_temp[0].parse::<u8>().unwrap(); 
+
+                let score = cpu_temp - score;
+                let msg = format!("{}",score );
+                println!("Score: {}", msg);
                 let mut buffer = msg.as_bytes();
 
 
                 for server in serverInfo11.iter(){
-                    if server.ip != ip.to_string() + ":2025" {
-                        socket.send_to(&buffer , &server.ip).unwrap();
-                    }
+                        let a = format!("{}{}", server.ip, ":2024");
+                        socket.send_to(&buffer , &a).unwrap();
                 }
-                println!("{}", serverInfo11[2].temperature.to_string());
+
                 std::mem::drop(serverInfo11); 
 
             // every one minute send your current temperature to the neighboring servers
+           
             let one_minute = time::Duration::from_millis(60000);
             thread::sleep(one_minute);
             
@@ -82,7 +97,7 @@ fn main() -> std::io::Result<()>{
                 loop {
                     println!("{} Receiving message from other servers", serverInThreadMsg);
                         
-                        let mut buf = [0; 100]; // buffer for recieving 
+                        let mut buf = [0; 4]; // buffer for recieving 
 
 
                         // blocked till Recieving a message from any of the other servers 
@@ -95,17 +110,18 @@ fn main() -> std::io::Result<()>{
                         println!("Message Recieved!");
 
                         println!("From: {:?}", src);
+
                         //print the received data as a string 
-                        let t = &buf[11..15];
-                        println!("Message: {}", String::from_utf8_lossy(&t));
+                        println!("Message: {}", String::from_utf8_lossy(&buf));
                        
 
                         // update the corresponding server in the serverInfo list
 
                         for server in serverInfo22.iter_mut(){
-                            if src.to_string() == (server.ip.to_string()+ ":2025")  {
-                                println!("hey"); 
-                                server.temperature = String::from_utf8((&t).to_vec()).unwrap().parse::<u8>().unwrap();
+                            if src.to_string() == (server.ip.to_string()+ ":2025")  {  
+                                let val1 = (buf[0] - 48)*10; 
+                                let val2 = buf[1] -48;
+                                server.cpu_score = val1+ val2;
                             }
 
                         }
@@ -144,7 +160,7 @@ fn main() -> std::io::Result<()>{
                         let mut agents22 = agents2.lock().unwrap();
                         if msg == "1" {
                              
-                        agents22.push(server{ip: src1.to_string(), state: true, temperature: 0});
+                        agents22.push(server{ip: src1.to_string(), state: true, cpu_score: 0});
 
                         }else if msg == "0"{
 
