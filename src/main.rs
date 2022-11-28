@@ -13,7 +13,6 @@ use rand::seq::index;
 use std::sync::{Arc, Mutex};
 use systemstat::{System, Platform, saturating_sub_bytes};
 use std::vec;
-use byteorder::{BigEndian, ReadBytesExt};
 
 use std::time;
 
@@ -29,7 +28,7 @@ fn main() -> std::io::Result<()>{
     
       let ip = local_ip::get().unwrap();
       let tempAgents: Vec<server> = vec![]; 
-      let tempServers: [server; 3] = [server { ip: ip.to_string(), state: true, cpu_score: 100}, server { ip: "172.20.10.6".to_string(), state: true, cpu_score: 100}, server { ip: "172.20.10.3".to_string(), state: true, cpu_score: 100},];
+      let tempServers: [server; 3] = [server { ip: ip.to_string(), state: true, cpu_score: 100}, server { ip: "192.168.8.106".to_string(), state: true, cpu_score: 13}, server { ip: "192.168.8.116".to_string(), state: true, cpu_score: 13},];
     
       let agents = Arc::new(Mutex::new(tempAgents));
       let serverInfo = Arc::new(Mutex::new(tempServers));
@@ -51,19 +50,19 @@ fn main() -> std::io::Result<()>{
                 let mem = sys.memory().unwrap();
                 let mem_used = saturating_sub_bytes(mem.total ,mem.free);
 
-                let mut score=mem_used.to_string();
+                let mem_used =mem_used.to_string();
                 
                 let mut serverInfo11 = serverInfo1.lock().unwrap();
 
                 // casting ByteSize to int
-                let score: Vec<&str> = score.split(".").collect(); 
-                let score = score[0].parse::<u8>().unwrap(); 
+                let mem_used: Vec<&str> = mem_used.split(".").collect(); 
+                let mem_used = mem_used[0].parse::<u8>().unwrap(); 
 
                 let cpu_temp = cpu_temp.to_string();
                 let cpu_temp: Vec<&str> = cpu_temp.split(".").collect(); 
                 let cpu_temp = cpu_temp[0].parse::<u8>().unwrap(); 
 
-                let score = cpu_temp - score;
+                let score = cpu_temp + mem_used;
                 let msg = format!("{}",score );
                 println!("Score: {}", msg);
                 let mut buffer = msg.as_bytes();
@@ -90,7 +89,7 @@ fn main() -> std::io::Result<()>{
             // thread to receive messages from other servers, to update table
             // dedicated thread to avoid being blocked by recv_from
 
-            
+            let agents3 = Arc::clone(&agents);
             let handler1 = thread::spawn(move || {
                 let socket = UdpSocket::bind(ip.to_string()+":2024").unwrap();
                 let serverInThreadMsg = "serverInThread::";
@@ -125,7 +124,37 @@ fn main() -> std::io::Result<()>{
                             }
 
                         }
+                        let mut agents33 = agents3.lock().unwrap();
+                        
+                        let mut myScore = 0;
+                        let mut max  = 0;  
 
+                        for server in serverInfo22.iter_mut(){
+                            if(ip.to_string() == server.ip){
+                                myScore = server.cpu_score;
+                            }
+                            if(server.cpu_score>max){
+                                    max = server.cpu_score;
+                            }
+                        }
+                        
+                        if(myScore==max){
+                            for agent in agents33.iter_mut(){
+
+                                let adr = format!("{}{}", agent.ip, ":2022");
+                                socket.send_to(b"0" , adr).unwrap();
+    
+                            }
+                        }
+                        
+
+
+                        
+
+                     
+                    
+
+                        std::mem::drop(agents33);
                         std::mem::drop(serverInfo22);
 
                         
@@ -207,12 +236,17 @@ fn main() -> std::io::Result<()>{
             println!("{} Recieving messages from agents", agentsThreadMsg);
             let mut buf = [0; 60];
             let (amt, src) = socket.recv_from(&mut buf).unwrap();
-            thread::sleep(Duration::from_millis(100));
+       
 
             // Redeclare `buf` as slice of the received data and send reverse data back to origin.
             let buf = &mut buf[..amt];
             buf.reverse();
-            socket.send_to(buf, ip.to_string()+":2021").unwrap();
+
+            let src1 = src.ip().to_string(); 
+            let src1: Vec<&str> = src1.split(":").collect(); 
+            let src1 = src1[0]; 
+            let src1  = format!("{}{}", src1.to_string(), ":2021");
+            socket.send_to(buf, src1).unwrap();
         }
 
 
