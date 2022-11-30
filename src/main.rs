@@ -25,7 +25,7 @@ struct server{
 
 fn main() -> std::io::Result<()>{
     {
-    
+      let mut num_of_requests_served = 0; 
       let ip = local_ip::get().unwrap();
       let tempAgents: Vec<server> = vec![]; 
       let tempServers: [server; 3] = [server { ip: ip.to_string(), state: true, cpu_score: 100}, server { ip: "192.168.8.118".to_string(), state: true, cpu_score: 90}, server { ip: "192.168.8.120".to_string(), state: true, cpu_score: 90},];
@@ -231,11 +231,16 @@ fn main() -> std::io::Result<()>{
         let socket = UdpSocket::bind(ip.to_string()+":2023").unwrap();
         let agentsThreadMsg = "agentsThread::";
 
+        let numberOfRequestsMsg = "numOfRequests::";
+
         // main thread to comunicate with the agents to perform main server functionality (reverse word)
         loop {
+         
             println!("{} Recieving messages from agents", agentsThreadMsg);
             let mut buf = [0; 60];
             let (amt, src) = socket.recv_from(&mut buf).unwrap();
+            num_of_requests_served = num_of_requests_served + 1;
+            println!("{} Number of requests served: {}", numberOfRequestsMsg, num_of_requests_served);
        
 
             // Redeclare `buf` as slice of the received data and send reverse data back to origin.
