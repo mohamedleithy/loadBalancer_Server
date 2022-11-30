@@ -28,7 +28,7 @@ fn main() -> std::io::Result<()>{
     
       let ip = local_ip::get().unwrap();
       let tempAgents: Vec<server> = vec![]; 
-      let tempServers: [server; 3] = [server { ip: ip.to_string(), state: true, cpu_score: 100}, server { ip: "192.168.8.106".to_string(), state: true, cpu_score: 13}, server { ip: "192.168.8.116".to_string(), state: true, cpu_score: 13},];
+      let tempServers: [server; 3] = [server { ip: ip.to_string(), state: true, cpu_score: 100}, server { ip: "192.168.8.118".to_string(), state: true, cpu_score: 90}, server { ip: "192.168.8.120".to_string(), state: true, cpu_score: 90},];
     
       let agents = Arc::new(Mutex::new(tempAgents));
       let serverInfo = Arc::new(Mutex::new(tempServers));
